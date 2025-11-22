@@ -46,12 +46,11 @@ def get_spark_session(
         "spark.hadoop.fs.s3a.connection.ssl.enabled": "false",
         
         # Iceberg Configuration
-        "spark.sql.catalog.spark_catalog": "org.apache.iceberg.spark.SparkSessionCatalog",
-        "spark.sql.catalog.spark_catalog.type": "hadoop",
         "spark.sql.catalog.local": "org.apache.iceberg.spark.SparkCatalog",
         "spark.sql.catalog.local.type": "hadoop",
-        "spark.sql.catalog.local.warehouse": "s3a://datalake/warehouse",
+        "spark.sql.catalog.local.warehouse": "file:///app/warehouse",
         "spark.sql.extensions": "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+        "spark.sql.defaultCatalog": "local",
         
         # Parquet Optimization - Column Pruning & Vectorization
         "spark.sql.parquet.enableVectorizedReader": "true",
