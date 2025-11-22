@@ -1,16 +1,15 @@
-FROM openjdk:11-jdk-slim
+FROM eclipse-temurin:11-jdk
 
-# Install Python 3.11
+# Install Python 3
 RUN apt-get update && apt-get install -y \
-    python3.11 \
+    python3 \
     python3-pip \
     curl \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.11 as default
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+# Set Python 3 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # Install Spark 3.5.0
 ENV SPARK_VERSION=3.5.0
@@ -22,12 +21,17 @@ RUN curl -L https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-$
     | tar -xz -C /opt/ \
     && mv /opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} ${SPARK_HOME}
 
+# Install Apache Iceberg JARs
+ENV ICEBERG_VERSION=1.4.3
+RUN curl -L -o ${SPARK_HOME}/jars/iceberg-spark-runtime-3.5_2.12-${ICEBERG_VERSION}.jar \
+    https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/${ICEBERG_VERSION}/iceberg-spark-runtime-3.5_2.12-${ICEBERG_VERSION}.jar
+
 # Set working directory
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+COPY docker-requirements.txt requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Install Allure command-line tool
 RUN curl -o allure-2.24.1.tgz -Ls https://github.com/allure-framework/allure2/releases/download/2.24.1/allure-2.24.1.tgz \
