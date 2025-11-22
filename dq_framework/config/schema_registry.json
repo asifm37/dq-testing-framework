@@ -1,0 +1,172 @@
+{
+  "tables": {
+    "transactions": {
+      "type": "structured",
+      "format": "iceberg",
+      "namespace": "datalake.bronze",
+      "incremental": true,
+      "timestamp_column": "transaction_timestamp",
+      "schema": {
+        "transaction_id": "string",
+        "user_id": "string",
+        "amount": "decimal(10,2)",
+        "transaction_timestamp": "timestamp",
+        "status": "string",
+        "merchant_id": "string",
+        "category": "string"
+      },
+      "validations": {
+        "schema_check": {
+          "enabled": true,
+          "strict_mode": true
+        },
+        "not_null": {
+          "columns": ["transaction_id", "user_id", "amount", "transaction_timestamp"]
+        },
+        "range": {
+          "amount": {
+            "min": 0.01,
+            "max": 1000000.00
+          }
+        },
+        "regex": {
+          "transaction_id": "^TXN[0-9]{10}$",
+          "status": "^(COMPLETED|PENDING|FAILED|REFUNDED)$"
+        },
+        "cross_column": [
+          {
+            "name": "timestamp_validity",
+            "expression": "transaction_timestamp <= current_timestamp()",
+            "description": "Transaction timestamp cannot be in the future"
+          }
+        ]
+      },
+      "quality_threshold": 0.10,
+      "circuit_breaker": {
+        "metadata_stop_on_failure": true,
+        "data_stop_on_threshold": true
+      }
+    },
+    "user_profiles": {
+      "type": "structured",
+      "format": "iceberg",
+      "namespace": "datalake.bronze",
+      "incremental": true,
+      "timestamp_column": "updated_at",
+      "schema": {
+        "user_id": "string",
+        "email": "string",
+        "age": "integer",
+        "registration_date": "date",
+        "account_balance": "decimal(10,2)",
+        "is_active": "boolean",
+        "updated_at": "timestamp"
+      },
+      "validations": {
+        "schema_check": {
+          "enabled": true,
+          "strict_mode": true
+        },
+        "not_null": {
+          "columns": ["user_id", "email", "registration_date"]
+        },
+        "range": {
+          "age": {
+            "min": 18,
+            "max": 120
+          },
+          "account_balance": {
+            "min": 0.00,
+            "max": 999999.99
+          }
+        },
+        "regex": {
+          "email": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          "user_id": "^USR[0-9]{8}$"
+        },
+        "cross_column": [
+          {
+            "name": "registration_date_validity",
+            "expression": "registration_date <= current_date()",
+            "description": "Registration date cannot be in the future"
+          }
+        ]
+      },
+      "quality_threshold": 0.10,
+      "circuit_breaker": {
+        "metadata_stop_on_failure": true,
+        "data_stop_on_threshold": true
+      }
+    },
+    "event_logs": {
+      "type": "unstructured",
+      "format": "json",
+      "namespace": "datalake.raw",
+      "incremental": true,
+      "timestamp_column": "event_time",
+      "validations": {
+        "file_existence": {
+          "enabled": true
+        },
+        "metadata_keys": {
+          "required": ["event_id", "event_type", "event_time", "user_id", "payload"]
+        },
+        "file_size": {
+          "min_bytes": 10,
+          "max_bytes": 10485760
+        }
+      },
+      "quality_threshold": 0.10,
+      "circuit_breaker": {
+        "metadata_stop_on_failure": true,
+        "data_stop_on_threshold": false
+      }
+    },
+    "product_images": {
+      "type": "unstructured",
+      "format": "image",
+      "namespace": "datalake.raw",
+      "incremental": true,
+      "timestamp_column": "upload_time",
+      "validations": {
+        "file_existence": {
+          "enabled": true
+        },
+        "metadata_keys": {
+          "required": ["product_id", "image_url", "upload_time", "image_format"]
+        },
+        "file_size": {
+          "min_bytes": 1024,
+          "max_bytes": 5242880
+        },
+        "file_extensions": {
+          "allowed": [".jpg", ".jpeg", ".png", ".webp"]
+        }
+      },
+      "quality_threshold": 0.10,
+      "circuit_breaker": {
+        "metadata_stop_on_failure": true,
+        "data_stop_on_threshold": false
+      }
+    }
+  },
+  "global_settings": {
+    "spark_config": {
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.coalescePartitions.enabled": "true",
+      "spark.sql.parquet.enableVectorizedReader": "true",
+      "spark.sql.parquet.columnarReaderBatchSize": "4096"
+    },
+    "iceberg_config": {
+      "type": "hadoop",
+      "warehouse": "s3a://datalake/warehouse",
+      "io-impl": "org.apache.iceberg.aws.s3.S3FileIO"
+    },
+    "reporting": {
+      "allure_results_dir": "/app/reports/allure-results",
+      "allure_report_dir": "/app/reports/allure-report",
+      "history_retention_days": 30
+    }
+  }
+}
+

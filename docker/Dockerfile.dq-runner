@@ -1,0 +1,53 @@
+FROM openjdk:11-jdk-slim
+
+# Install Python 3.11
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+
+# Install Spark 3.5.0
+ENV SPARK_VERSION=3.5.0
+ENV HADOOP_VERSION=3
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+
+RUN curl -L https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+    | tar -xz -C /opt/ \
+    && mv /opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} ${SPARK_HOME}
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Install Allure command-line tool
+RUN curl -o allure-2.24.1.tgz -Ls https://github.com/allure-framework/allure2/releases/download/2.24.1/allure-2.24.1.tgz \
+    && tar -zxvf allure-2.24.1.tgz -C /opt/ \
+    && ln -s /opt/allure-2.24.1/bin/allure /usr/bin/allure \
+    && rm allure-2.24.1.tgz
+
+# Copy DQ framework code
+COPY dq_framework/ /app/dq_framework/
+COPY tests/ /app/tests/
+COPY scripts/ /app/scripts/
+
+# Create directories for reports and warehouse
+RUN mkdir -p /app/reports/allure-results /app/reports/allure-report /app/warehouse
+
+# Set environment variables
+ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYSPARK_PYTHON=python3
+ENV PYSPARK_DRIVER_PYTHON=python3
+
+# Default command (will be overridden by KubernetesPodOperator)
+CMD ["python3", "-m", "pytest", "-v", "--alluredir=/app/reports/allure-results"]
+

@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # MinIO - S3-compatible object storage (for local testing without K8s)
+  minio:
+    image: minio/minio:latest
+    container_name: dq-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # DQ Runner (for local testing without K8s)
+  dq-runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dq-runner
+    container_name: dq-runner
+    depends_on:
+      - minio
+    volumes:
+      - ../dq_framework:/app/dq_framework
+      - ../tests:/app/tests
+      - ../scripts:/app/scripts
+      - ../reports:/app/reports
+      - ../warehouse:/app/warehouse
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - PYTHONUNBUFFERED=1
+    command: sleep infinity
+
+volumes:
+  minio-data:
+
